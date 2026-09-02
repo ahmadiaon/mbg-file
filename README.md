@@ -15,3 +15,5 @@ Platform File Manager MBG yang berdiri sendiri dari aplikasi legacy `assets.mitr
 3. Salin `frontend/.env.example` menjadi `frontend/.env`, ganti `MINI-PC-IP`, lalu jalankan `npm install` dan `npm run dev`.
 
 Dummy login development: `admin` / `admin123`.
+
+PRD produk tersedia pada `MBG_File_Manager_PRD_v1.0.md`.
