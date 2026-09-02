@@ -1,25 +1,34 @@
-import { Controller, Get, Post, Req, UploadedFile, UseInterceptors, BadRequestException } from '@nestjs/common';
+import { BadRequestException, Body, Controller, Delete, Get, NotFoundException, Param, Patch, Post, Query, Req, Res, UploadedFile, UseInterceptors } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { createHash } from 'crypto';
 import { createReadStream, promises as fs } from 'fs';
 import { diskStorage } from 'multer';
-import { extname, join } from 'path';
+import { join } from 'path';
 import { Response } from 'express';
-import { Res } from '@nestjs/common';
 import { PrismaService } from './prisma.service';
+import { requireUser } from './auth.util';
+
+const storageRoot = () => join(process.env.STORAGE_PATH || './storage');
+const cleanName = (name: string) => name.trim().replace(/[\\/:*?"<>|]/g, '_').replace(/\.\./g, '') || 'Tanpa nama';
+const output = (file: any) => ({ ...file, size: Number(file.size) });
 
 @Controller('files')
 export class FilesController {
   constructor(private readonly prisma: PrismaService) {}
-  @Get() async list() { const files = await this.prisma.file.findMany({ orderBy: { createdAt: 'desc' } }); return files.map((f) => ({ ...f, size: Number(f.size) })); }
-  @Post()
-  @UseInterceptors(FileInterceptor('file', { storage: diskStorage({ destination: async (_req, _file, cb) => { const dir = join(process.env.STORAGE_PATH || './storage'); await fs.mkdir(dir, { recursive: true }); cb(null, dir); }, filename: (_req, file, cb) => cb(null, `${Date.now()}-${file.originalname.replace(/[^a-zA-Z0-9._-]/g, '_')}`) }) }))
-  async upload(@UploadedFile() file: Express.Multer.File) {
-    if (!file) throw new BadRequestException('File tidak ada');
-    const sha256 = createHash('sha256').update(await fs.readFile(file.path)).digest('hex');
-    const saved = await this.prisma.file.create({ data: { filename: file.filename, originalFilename: file.originalname, storagePath: file.path, mimeType: file.mimetype, size: BigInt(file.size), sha256, source: 'v1' } });
-    await this.prisma.activityLog.create({ data: { action: 'upload', source: 'v1', fileId: saved.id } });
-    return { ...saved, size: Number(saved.size) };
+  @Get() async list(@Req() req: any, @Query('q') q?: string, @Query('folderId') folderId?: string) {
+    requireUser(req);
+    const files = await this.prisma.file.findMany({ where: { ...(folderId ? { folderId: Number(folderId) } : {}), ...(q ? { originalFilename: { contains: q } } : {}) }, include: { folder: true }, orderBy: { createdAt: 'desc' } });
+    return files.map(output);
   }
-  @Get(':id/download') async download(@Req() req: any, @Res() res: Response) { const file = await this.prisma.file.findUnique({ where: { id: Number(req.params.id) } }); if (!file) return res.status(404).json({ message: 'File tidak ditemukan' }); res.setHeader('Content-Disposition', `attachment; filename="${file.originalFilename}"`); return createReadStream(file.storagePath).pipe(res); }
+  @Post()
+  @UseInterceptors(FileInterceptor('file', { storage: diskStorage({ destination: async (_req, _file, cb) => { await fs.mkdir(storageRoot(), { recursive: true }); cb(null, storageRoot()); }, filename: (_req, file, cb) => cb(null, `${Date.now()}-${cleanName(file.originalname)}`) }) }))
+  async upload(@Req() req: any, @UploadedFile() file: Express.Multer.File, @Body('folderId') folderId?: string) {
+    const user = requireUser(req); if (!file) throw new BadRequestException('File tidak ada');
+    const saved = await this.prisma.file.create({ data: { filename: file.filename, originalFilename: file.originalname, storagePath: file.path, mimeType: file.mimetype, size: BigInt(file.size), sha256: createHash('sha256').update(await fs.readFile(file.path)).digest('hex'), source: 'v1', folderId: folderId ? Number(folderId) : null, uploadedBy: Number(user.sub) } });
+    await this.prisma.activityLog.create({ data: { action: 'upload', source: 'v1', fileId: saved.id, userId: Number(user.sub) } }); return output(saved);
+  }
+  @Patch(':id') async rename(@Req() req: any, @Param('id') id: string, @Body('name') name: string) { const user = requireUser(req); const file = await this.prisma.file.findUnique({ where: { id: Number(id) } }); if (!file) throw new NotFoundException('File tidak ditemukan'); const updated = await this.prisma.file.update({ where: { id: file.id }, data: { originalFilename: cleanName(name) } }); await this.prisma.activityLog.create({ data: { action: 'rename', source: 'v1', fileId: file.id, userId: Number(user.sub) } }); return output(updated); }
+  @Patch(':id/move') async move(@Req() req: any, @Param('id') id: string, @Body('folderId') folderId: number | null) { const user = requireUser(req); const file = await this.prisma.file.update({ where: { id: Number(id) }, data: { folderId: folderId || null } }); await this.prisma.activityLog.create({ data: { action: 'move', source: 'v1', fileId: file.id, userId: Number(user.sub) } }); return output(file); }
+  @Delete(':id') async remove(@Req() req: any, @Param('id') id: string) { const user = requireUser(req); const file = await this.prisma.file.findUnique({ where: { id: Number(id) } }); if (!file) throw new NotFoundException('File tidak ditemukan'); await fs.rm(file.storagePath, { force: true }); await this.prisma.file.delete({ where: { id: file.id } }); await this.prisma.activityLog.create({ data: { action: 'delete', source: 'v1', userId: Number(user.sub), metadata: { fileId: file.id, name: file.originalFilename } } }); return { success: true }; }
+  @Get(':id/download') async download(@Req() req: any, @Param('id') id: string, @Res() res: Response) { requireUser(req); const file = await this.prisma.file.findUnique({ where: { id: Number(id) } }); if (!file) return res.status(404).json({ message: 'File tidak ditemukan' }); res.setHeader('Content-Disposition', `attachment; filename="${file.originalFilename}"`); return createReadStream(file.storagePath).pipe(res); }
 }

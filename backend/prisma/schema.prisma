@@ -34,11 +34,14 @@ model User {
 
 model Folder {
   id        Int      @id @default(autoincrement())
+  parentId  Int?     @map("parent_id")
   name      String
   path      String   @unique
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
   files     File[]
+  parent    Folder?  @relation("FolderTree", fields: [parentId], references: [id])
+  children  Folder[] @relation("FolderTree")
   @@map("folders")
 }
 
