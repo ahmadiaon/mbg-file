@@ -17,7 +17,15 @@ export class FilesController {
   constructor(private readonly prisma: PrismaService) {}
   @Get() async list(@Req() req: any, @Query('q') q?: string, @Query('folderId') folderId?: string) {
     requireUser(req);
-    const files = await this.prisma.file.findMany({ where: { ...(folderId ? { folderId: Number(folderId) } : {}), ...(q ? { originalFilename: { contains: q } } : {}) }, include: { folder: true }, orderBy: { createdAt: 'desc' } });
+    let folderIds: number[] | undefined;
+    if (folderId) {
+      const allFolders = await this.prisma.folder.findMany({ select: { id: true, parentId: true } });
+      folderIds = [Number(folderId)];
+      for (let index = 0; index < folderIds.length; index += 1) {
+        folderIds.push(...allFolders.filter((folder) => folder.parentId === folderIds![index]).map((folder) => folder.id));
+      }
+    }
+    const files = await this.prisma.file.findMany({ where: { ...(folderIds ? { folderId: { in: folderIds } } : {}), ...(q ? { originalFilename: { contains: q } } : {}) }, include: { folder: true }, orderBy: { createdAt: 'desc' } });
     return files.map(output);
   }
   @Post()
