@@ -14,6 +14,12 @@ File dikirim sebagai multipart field `file` ke `POST /api/v1/files`. Backend mem
 
 Frontend mengunduh file menggunakan request Axios dengan header Bearer dan Blob. Dengan begitu file tetap melewati autentikasi API dan tidak menjadi static asset publik.
 
+## Share link untuk Mini PC
+
+Pilih file lalu klik `Share link`. Backend membuat token acak dan mengembalikan URL `GET /api/v1/public/share/:token`. Endpoint publik hanya dapat mengakses file yang secara eksplisit dibagikan dan tidak membuka path filesystem. Link dapat dibuka dari laptop, Mini PC, atau client lain yang memiliki URL.
+
+Workflow penggunaan: upload database dari laptop, pilih file tersebut, klik `Share link`, lalu gunakan URL yang tampil pada Mini PC. Untuk akses programatis, Mini PC dapat mengunduh URL share dengan `curl -L -o database.sql '<URL>'`. Link dapat dinonaktifkan melalui API `DELETE /api/v1/files/:id/share`.
+
 ## Operasi file
 
 Klik file untuk memilihnya. Aksi `Rename` memanggil `PATCH /api/v1/files/:id`, `Hapus` memanggil `DELETE /api/v1/files/:id`, dan upload pada folder aktif mengirim `folderId`. Pencarian dikirim sebagai query `q`; navigasi folder menggunakan `folderId`.

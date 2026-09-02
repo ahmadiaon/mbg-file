@@ -60,6 +60,9 @@ model File {
   uploader         User?    @relation(fields: [uploadedBy], references: [id])
   createdAt        DateTime @default(now()) @map("created_at")
   updatedAt        DateTime @updatedAt @map("updated_at")
+  shareToken       String?  @unique @map("share_token")
+  shareEnabled     Boolean  @default(false) @map("share_enabled")
+  shareExpiresAt   DateTime? @map("share_expires_at")
   logs             ActivityLog[]
   @@map("files")
 }
