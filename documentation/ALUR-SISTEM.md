@@ -22,4 +22,4 @@ Folder dibuat melalui `POST /api/v1/folders`. Model API token menyediakan nama, 
 
 ## Jaringan
 
-Backend listen pada `0.0.0.0:3001`; Vite listen pada `0.0.0.0`. Gunakan IP Mini PC pada `VITE_API_URL` agar perangkat lain di jaringan dapat mengaksesnya. Firewall perlu membuka port yang digunakan.
+Backend listen pada `0.0.0.0:8081`; Vite listen pada `0.0.0.0:8080`. Gunakan IP Mini PC pada `VITE_API_URL` agar perangkat lain di jaringan dapat mengaksesnya. Firewall perlu membuka port yang digunakan.

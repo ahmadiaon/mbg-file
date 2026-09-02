@@ -16,4 +16,6 @@ Platform File Manager MBG yang berdiri sendiri dari aplikasi legacy `assets.mitr
 
 Dummy login development: `admin` / `admin123`.
 
+Development ports: frontend `8080`, backend API `8081`.
+
 PRD produk tersedia pada `MBG_File_Manager_PRD_v1.0.md`.
