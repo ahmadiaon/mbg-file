@@ -1,0 +1,89 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+enum UserRole {
+  ADMIN
+}
+
+enum TokenStatus {
+  ACTIVE
+  REVOKED
+}
+
+model User {
+  id           Int           @id @default(autoincrement())
+  username     String        @unique
+  passwordHash String        @map("password_hash")
+  name         String
+  role         UserRole      @default(ADMIN)
+  unit         String        @default("umum")
+  status       String        @default("active")
+  createdAt    DateTime      @default(now()) @map("created_at")
+  updatedAt    DateTime      @updatedAt @map("updated_at")
+  files        File[]
+  tokens       ApiToken[]
+  logs         ActivityLog[]
+  @@map("users")
+}
+
+model Folder {
+  id        Int      @id @default(autoincrement())
+  name      String
+  path      String   @unique
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+  files     File[]
+  @@map("folders")
+}
+
+model File {
+  id               Int      @id @default(autoincrement())
+  filename         String
+  originalFilename String   @map("original_filename")
+  storagePath      String   @map("storage_path")
+  mimeType         String?  @map("mime_type")
+  size             BigInt
+  sha256           String
+  source           String   @default("v1")
+  folderId         Int?
+  folder           Folder?  @relation(fields: [folderId], references: [id])
+  uploadedBy       Int?
+  uploader         User?    @relation(fields: [uploadedBy], references: [id])
+  createdAt        DateTime @default(now()) @map("created_at")
+  updatedAt        DateTime @updatedAt @map("updated_at")
+  logs             ActivityLog[]
+  @@map("files")
+}
+
+model ApiToken {
+  id         Int         @id @default(autoincrement())
+  name       String
+  tokenHash  String      @map("token_hash")
+  userId     Int
+  user       User        @relation(fields: [userId], references: [id])
+  expiresAt  DateTime?   @map("expires_at")
+  lastUsedAt DateTime?   @map("last_used_at")
+  status     TokenStatus @default(ACTIVE)
+  createdAt  DateTime    @default(now()) @map("created_at")
+  @@map("api_tokens")
+}
+
+model ActivityLog {
+  id        Int      @id @default(autoincrement())
+  action    String
+  source    String   @default("v1")
+  userId    Int?     @map("user_id")
+  fileId    Int?     @map("file_id")
+  metadata  Json?
+  ipAddress String?  @map("ip_address")
+  createdAt DateTime @default(now()) @map("created_at")
+  user      User?    @relation(fields: [userId], references: [id])
+  file      File?    @relation(fields: [fileId], references: [id])
+  @@map("activity_logs")
+}
