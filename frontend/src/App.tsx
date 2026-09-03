@@ -411,6 +411,12 @@ export default function App() {
             <div className="col-12 col-md-7 col-lg-5">
               <div className="card border-0 shadow-lg">
                 <div className="card-body p-4 p-md-5">
+                  <img
+                    src="/mbg-logo.png"
+                    alt="MBG"
+                    className="d-block mb-3"
+                    style={{ width: "96px", height: "96px", objectFit: "contain" }}
+                  />
                   <span className="badge text-bg-primary mb-3">
                     MBG FILE MANAGEMENT
                   </span>
@@ -474,7 +480,13 @@ export default function App() {
         >
           <div className="d-flex flex-column h-100 p-3">
             <div className="fs-5 fw-bold mb-4">
-              <span className="badge bg-info text-dark me-2">M</span> MBG{" "}
+              <img
+                src="/mbg-logo.png"
+                alt="MBG"
+                className="rounded-circle bg-white me-2"
+                style={{ width: "34px", height: "34px", objectFit: "contain" }}
+              />
+              MBG{" "}
               <small className="text-info">FILES</small>
             </div>
             <button
