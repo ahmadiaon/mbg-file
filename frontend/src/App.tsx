@@ -88,6 +88,7 @@ export default function App() {
     eta: 0,
   });
   const [alert, setAlert] = useState<AlertState>(null);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
   const fileInput = useRef<HTMLInputElement>(null);
   const authHeaders = token ? headers(token) : {};
   const currentFolder = folders.find((folder) => folder.id === folderId);
@@ -103,7 +104,10 @@ export default function App() {
           <button
             className={`btn btn-link text-start text-decoration-none w-100 ${folder.id === folderId ? "bg-primary text-white" : "text-light"}`}
             style={{ paddingLeft: `${12 + depth * 16}px` }}
-            onClick={() => setFolderId(folder.id)}
+            onClick={() => {
+              setFolderId(folder.id);
+              setSidebarOpen(false);
+            }}
             title={folder.name}
           >
             <span className="me-2">{depth ? "└" : "▰"}</span>
@@ -473,13 +477,20 @@ export default function App() {
     <div className="container-fluid min-vh-100 bg-secondary-subtle">
       <div className="row min-vh-100">
         <aside
-          className="col-3 col-md-3 col-xl-2 px-0 text-white border-end border-3 border-primary-subtle"
+          className={`col-md-3 col-xl-2 px-0 text-white border-end border-3 border-primary-subtle app-sidebar ${sidebarOpen ? "app-sidebar-open" : ""}`}
           style={{
             background:
               "linear-gradient(180deg, #071a33 0%, #0d294b 52%, #123e68 100%)",
           }}
         >
-          <div className="d-flex flex-column h-100 p-2 p-md-3 overflow-hidden">
+          <button
+            className="btn btn-sm btn-outline-light app-sidebar-close d-md-none"
+            onClick={() => setSidebarOpen(false)}
+            aria-label="Tutup menu"
+          >
+            ×
+          </button>
+          <div className="d-flex flex-column h-100 p-3 overflow-hidden">
             <div className="fs-5 fw-bold mb-4 text-nowrap">
               <img
                 src="/mbg-logo.png"
@@ -487,14 +498,14 @@ export default function App() {
                 className="rounded-circle bg-white me-2"
                 style={{ width: "34px", height: "34px", objectFit: "contain" }}
               />
-              <span className="d-none d-md-inline">MBG{" "}</span>
-              <small className="text-info d-none d-md-inline">FILES</small>
+              <span>MBG{" "}</span>
+              <small className="text-info">FILES</small>
             </div>
             <button
               className="btn btn-info text-dark fw-bold mb-4"
               onClick={() => fileInput.current?.click()}
             >
-              ＋ <span className="d-none d-md-inline">Upload file</span>
+              ＋ Upload file
             </button>
             <input
               ref={fileInput}
@@ -504,7 +515,7 @@ export default function App() {
               onChange={(e) => upload(e.target.files)}
             />
             <nav>
-              <small className="text-info fw-bold d-none d-md-block">WORKSPACE</small>
+              <small className="text-info fw-bold">WORKSPACE</small>
               <button
                 className={`btn text-start w-100 mt-2 ${!folderId ? "btn-primary" : "btn-link text-white text-decoration-none"}`}
                 onClick={() => setFolderId(null)}
@@ -518,7 +529,7 @@ export default function App() {
               >
                 ＋ <span className="d-none d-md-inline">Folder baru</span>
               </button>
-              <small className="d-none d-md-block text-info fw-bold mt-4 mb-2">
+              <small className="d-block text-info fw-bold mt-4 mb-2">
                 FOLDER
               </small>
               {folderTree()}
@@ -535,7 +546,7 @@ export default function App() {
             </div>
           </div>
         </aside>
-        <section className="col p-2 p-md-5 position-relative" style={{ minWidth: 0 }}>
+        <section className="col p-3 p-md-5 position-relative" style={{ minWidth: 0 }}>
           <div
             className="progress position-absolute top-0 start-0 w-100 rounded-0"
             style={{ height: loading ? "4px" : "0", transition: "height .2s" }}
@@ -543,9 +554,16 @@ export default function App() {
             <div className="progress-bar progress-bar-striped progress-bar-animated bg-info w-100" />
           </div>
           <header className="d-flex justify-content-between align-items-start gap-3 flex-wrap mb-4">
+            <button
+              className="btn btn-primary d-md-none"
+              onClick={() => setSidebarOpen(true)}
+              aria-label="Buka menu"
+            >
+              ☰ Menu
+            </button>
             <div>
               <small className="text-primary fw-bold">
-                <span className="d-none d-sm-inline">FILE MANAGEMENT PLATFORM</span>
+                FILE MANAGEMENT PLATFORM
               </small>
               <h1 className="h2 text-primary-emphasis fw-bold">
                 Workspace files
@@ -730,6 +748,13 @@ export default function App() {
           </small>
         </section>
       </div>
+      {sidebarOpen && (
+        <button
+          className="app-sidebar-backdrop d-md-none"
+          onClick={() => setSidebarOpen(false)}
+          aria-label="Tutup menu"
+        />
+      )}
       {uploadState.active && (
         <div
           className="modal fade show d-block"
