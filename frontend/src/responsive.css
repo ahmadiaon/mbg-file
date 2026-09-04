@@ -15,6 +15,35 @@
   background: rgba(0, 0, 0, 0.55);
 }
 
+.drop-active {
+  outline: 3px dashed #0dcaf0;
+  outline-offset: -0.75rem;
+}
+
+.drop-overlay {
+  position: absolute;
+  inset: 1rem;
+  z-index: 1030;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  border: 2px dashed #0dcaf0;
+  border-radius: 0.75rem;
+  background: rgba(207, 244, 252, 0.92);
+  color: #084c61;
+  pointer-events: none;
+}
+
+.preview-image {
+  max-height: 70vh;
+}
+
+.preview-pdf {
+  height: 70vh;
+}
+
 @media (max-width: 767.98px) {
   .app-sidebar {
     position: fixed;

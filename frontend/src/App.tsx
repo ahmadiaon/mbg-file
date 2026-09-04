@@ -1,4 +1,11 @@
-import { FormEvent, ReactNode, useEffect, useRef, useState } from "react";
+import {
+  DragEvent,
+  FormEvent,
+  ReactNode,
+  useEffect,
+  useRef,
+  useState,
+} from "react";
 import axios from "axios";
 
 const api = axios.create({
@@ -25,6 +32,7 @@ type AlertState = {
   message: string;
   shareUrl?: string;
 } | null;
+type PreviewState = { file: FileItem; url: string } | null;
 const headers = (token: string) => ({ Authorization: `Bearer ${token}` });
 const formatSize = (value: number) =>
   value < 1024
@@ -39,6 +47,8 @@ const formatEta = (seconds: number) => {
   const remaining = Math.ceil(seconds % 60);
   return minutes ? `${minutes}m ${remaining}d` : `${remaining} detik`;
 };
+const canPreview = (file: FileItem) =>
+  file.mimeType?.startsWith("image/") || file.mimeType === "application/pdf";
 const fileIcon = (file: FileItem) =>
   file.mimeType?.startsWith("image")
     ? "IMG"
@@ -89,6 +99,8 @@ export default function App() {
   });
   const [alert, setAlert] = useState<AlertState>(null);
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [dragging, setDragging] = useState(false);
+  const [preview, setPreview] = useState<PreviewState>(null);
   const fileInput = useRef<HTMLInputElement>(null);
   const authHeaders = token ? headers(token) : {};
   const currentFolder = folders.find((folder) => folder.id === folderId);
@@ -156,6 +168,11 @@ export default function App() {
   useEffect(() => {
     load();
   }, [token, folderId, query]);
+  useEffect(() => {
+    return () => {
+      if (preview) URL.revokeObjectURL(preview.url);
+    };
+  }, [preview]);
   const totalFiles =
     folders.reduce((sum, folder) => sum + (folder._count?.files || 0), 0) +
     files.length;
@@ -391,6 +408,31 @@ export default function App() {
       });
     }
   };
+  const previewFile = async (file: FileItem) => {
+    if (!canPreview(file)) return;
+    try {
+      const response = await api.get(`/files/${file.id}/download`, {
+        headers: authHeaders,
+        responseType: "blob",
+      });
+      setPreview({ file, url: URL.createObjectURL(response.data) });
+    } catch {
+      setAlert({
+        type: "danger",
+        title: "Preview gagal",
+        message: "File tidak dapat ditampilkan.",
+      });
+    }
+  };
+  const closePreview = () => {
+    if (preview) URL.revokeObjectURL(preview.url);
+    setPreview(null);
+  };
+  const handleDrop = (event: DragEvent<HTMLElement>) => {
+    event.preventDefault();
+    setDragging(false);
+    upload(event.dataTransfer.files);
+  };
   const removeFolder = async (folder: Folder) => {
     if (!window.confirm(`Hapus folder ${folder.name}? Folder harus kosong.`))
       return;
@@ -556,7 +598,25 @@ export default function App() {
             </div>
           </div>
         </aside>
-        <section className="col p-3 p-md-5 position-relative" style={{ minWidth: 0 }}>
+        <section
+          className={`col p-3 p-md-5 position-relative ${dragging ? "drop-active" : ""}`}
+          style={{ minWidth: 0 }}
+          onDragEnter={(event) => {
+            event.preventDefault();
+            setDragging(true);
+          }}
+          onDragOver={(event) => event.preventDefault()}
+          onDragLeave={(event) => {
+            if (event.currentTarget === event.target) setDragging(false);
+          }}
+          onDrop={handleDrop}
+        >
+          {dragging && (
+            <div className="drop-overlay">
+              <strong>Lepaskan file di sini untuk mengupload</strong>
+              <small>File akan disimpan di folder yang sedang dibuka</small>
+            </div>
+          )}
           <div
             className="progress position-absolute top-0 start-0 w-100 rounded-0"
             style={{ height: loading ? "4px" : "0", transition: "height .2s" }}
@@ -715,7 +775,7 @@ export default function App() {
                 </div>
               </div>
             ))}
-            {files.map((file) => (
+            {folderId !== null && files.map((file) => (
               <div
                 className={view === "grid" ? "col-12 col-md-6 col-xl-4" : ""}
                 key={file.id}
@@ -737,6 +797,17 @@ export default function App() {
                         {file.mimeType || "File"} · {formatSize(file.size)}
                       </small>
                     </div>
+                    {canPreview(file) && (
+                      <button
+                        className="btn btn-sm btn-outline-secondary"
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          previewFile(file);
+                        }}
+                      >
+                        Lihat
+                      </button>
+                    )}
                     <small className="text-secondary d-none d-md-block">
                       {new Date(file.createdAt).toLocaleDateString("id-ID")}
                     </small>
@@ -753,7 +824,7 @@ export default function App() {
                 </div>
               </div>
             ))}
-            {!files.length && !visibleFolders.length && (
+            {(!files.length || folderId === null) && !visibleFolders.length && (
               <div className="text-center text-secondary py-5">
                 <div className="display-6">□</div>
                 <strong>Folder ini masih kosong</strong>
@@ -820,6 +891,54 @@ export default function App() {
                 <p className="text-secondary small mt-3 mb-0">
                   Jangan tutup halaman selama proses upload berlangsung.
                 </p>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+      {preview && (
+        <div
+          className="modal fade show d-block"
+          tabIndex={-1}
+          style={{ background: "rgba(0,0,0,.75)" }}
+          onClick={closePreview}
+        >
+          <div
+            className="modal-dialog modal-xl modal-dialog-centered"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="modal-content border-0 shadow-lg">
+              <div className="modal-header">
+                <h5 className="modal-title text-truncate">{preview.file.originalFilename}</h5>
+                <button
+                  type="button"
+                  className="btn-close"
+                  onClick={closePreview}
+                  aria-label="Tutup preview"
+                />
+              </div>
+              <div className="modal-body p-2 p-md-4 text-center">
+                {preview.file.mimeType?.startsWith("image/") ? (
+                  <img
+                    src={preview.url}
+                    alt={preview.file.originalFilename}
+                    className="img-fluid preview-image"
+                  />
+                ) : (
+                  <iframe
+                    src={preview.url}
+                    title={preview.file.originalFilename}
+                    className="preview-pdf w-100 border-0"
+                  />
+                )}
+              </div>
+              <div className="modal-footer">
+                <button className="btn btn-secondary" onClick={closePreview}>
+                  Tutup
+                </button>
+                <button className="btn btn-primary" onClick={() => download(preview.file)}>
+                  Download
+                </button>
               </div>
             </div>
           </div>
