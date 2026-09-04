@@ -104,9 +104,10 @@ export default function App() {
             className={`btn btn-link text-start text-decoration-none w-100 ${folder.id === folderId ? "bg-primary text-white" : "text-light"}`}
             style={{ paddingLeft: `${12 + depth * 16}px` }}
             onClick={() => setFolderId(folder.id)}
+            title={folder.name}
           >
             <span className="me-2">{depth ? "└" : "▰"}</span>
-            {folder.name}
+            <span className="d-none d-md-inline">{folder.name}</span>
             <small className="float-end opacity-75">
               {folder._count?.files || ""}
             </small>
@@ -472,28 +473,28 @@ export default function App() {
     <div className="container-fluid min-vh-100 bg-secondary-subtle">
       <div className="row min-vh-100">
         <aside
-          className="col-auto col-md-3 col-xl-2 px-0 text-white border-end border-3 border-primary-subtle"
+          className="col-3 col-md-3 col-xl-2 px-0 text-white border-end border-3 border-primary-subtle"
           style={{
             background:
               "linear-gradient(180deg, #071a33 0%, #0d294b 52%, #123e68 100%)",
           }}
         >
-          <div className="d-flex flex-column h-100 p-3">
-            <div className="fs-5 fw-bold mb-4">
+          <div className="d-flex flex-column h-100 p-2 p-md-3 overflow-hidden">
+            <div className="fs-5 fw-bold mb-4 text-nowrap">
               <img
                 src="/mbg-logo.png"
                 alt="MBG"
                 className="rounded-circle bg-white me-2"
                 style={{ width: "34px", height: "34px", objectFit: "contain" }}
               />
-              MBG{" "}
-              <small className="text-info">FILES</small>
+              <span className="d-none d-md-inline">MBG{" "}</span>
+              <small className="text-info d-none d-md-inline">FILES</small>
             </div>
             <button
               className="btn btn-info text-dark fw-bold mb-4"
               onClick={() => fileInput.current?.click()}
             >
-              ＋ Upload file
+              ＋ <span className="d-none d-md-inline">Upload file</span>
             </button>
             <input
               ref={fileInput}
@@ -503,7 +504,7 @@ export default function App() {
               onChange={(e) => upload(e.target.files)}
             />
             <nav>
-              <small className="text-info fw-bold">WORKSPACE</small>
+              <small className="text-info fw-bold d-none d-md-block">WORKSPACE</small>
               <button
                 className={`btn text-start w-100 mt-2 ${!folderId ? "btn-primary" : "btn-link text-white text-decoration-none"}`}
                 onClick={() => setFolderId(null)}
@@ -517,7 +518,7 @@ export default function App() {
               >
                 ＋ <span className="d-none d-md-inline">Folder baru</span>
               </button>
-              <small className="d-block text-info fw-bold mt-4 mb-2">
+              <small className="d-none d-md-block text-info fw-bold mt-4 mb-2">
                 FOLDER
               </small>
               {folderTree()}
@@ -534,23 +535,23 @@ export default function App() {
             </div>
           </div>
         </aside>
-        <section className="col p-3 p-md-5 position-relative">
+        <section className="col p-2 p-md-5 position-relative" style={{ minWidth: 0 }}>
           <div
             className="progress position-absolute top-0 start-0 w-100 rounded-0"
             style={{ height: loading ? "4px" : "0", transition: "height .2s" }}
           >
             <div className="progress-bar progress-bar-striped progress-bar-animated bg-info w-100" />
           </div>
-          <header className="d-flex justify-content-between align-items-start mb-4">
+          <header className="d-flex justify-content-between align-items-start gap-3 flex-wrap mb-4">
             <div>
               <small className="text-primary fw-bold">
-                FILE MANAGEMENT PLATFORM
+                <span className="d-none d-sm-inline">FILE MANAGEMENT PLATFORM</span>
               </small>
               <h1 className="h2 text-primary-emphasis fw-bold">
                 Workspace files
               </h1>
             </div>
-            <div className="d-flex align-items-center gap-2">
+            <div className="d-flex align-items-center gap-2 ms-auto">
               <span className="badge rounded-pill text-bg-success">
                 Terhubung
               </span>
@@ -602,7 +603,7 @@ export default function App() {
               className="btn btn-primary"
               onClick={() => fileInput.current?.click()}
             >
-              Upload file ↑
+              <span className="d-none d-sm-inline">Upload file </span>↑
             </button>
           </div>
           <nav className="mb-4 small">
@@ -619,7 +620,7 @@ export default function App() {
               </span>
             ))}
           </nav>
-          <div className="d-flex justify-content-between align-items-center mb-3">
+          <div className="d-flex justify-content-between align-items-start gap-2 flex-wrap mb-3">
             <div>
               <h2 className="h5 mb-1">{currentFolder?.name || "Semua file"}</h2>
               <small className="text-secondary">
@@ -627,7 +628,7 @@ export default function App() {
               </small>
             </div>
             {selected && (
-              <div className="btn-group">
+              <div className="btn-group flex-wrap justify-content-end gap-1">
                 <button
                   className="btn btn-sm btn-outline-primary"
                   onClick={share}
@@ -656,7 +657,7 @@ export default function App() {
                 key={folder.id}
               >
                 <div className="card border-primary-subtle mb-2">
-                  <div className="card-body d-flex align-items-center gap-3 py-3">
+                  <div className="card-body d-flex align-items-center gap-2 gap-md-3 py-3">
                     <span className="fs-3 text-warning">▰</span>
                     <button
                       className="btn btn-link text-start text-decoration-none p-0 flex-grow-1"
@@ -684,11 +685,11 @@ export default function App() {
                 key={file.id}
               >
                 <div
-                  className={`card mb-2 ${selected?.id === file.id ? "border-primary bg-primary-subtle" : "border-light"}`}
+                  className={`card mb-2 overflow-hidden ${selected?.id === file.id ? "border-primary bg-primary-subtle" : "border-light"}`}
                   onClick={() => setSelected(file)}
                   role="button"
                 >
-                  <div className="card-body d-flex align-items-center gap-3 py-3">
+                  <div className="card-body d-flex align-items-center gap-2 gap-md-3 py-3">
                     <span className="badge text-bg-primary">
                       {fileIcon(file)}
                     </span>
