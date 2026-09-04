@@ -636,6 +636,14 @@ export default function App() {
           </div>
           <nav className="mb-4 small">
             <button
+              className="btn btn-outline-secondary btn-sm me-2"
+              onClick={() => setFolderId(currentFolder?.parentId || null)}
+              disabled={!currentFolder}
+              title={currentFolder ? "Kembali ke folder sebelumnya" : "Sudah di root"}
+            >
+              ← Kembali
+            </button>
+            <button
               className="btn btn-link p-0 text-decoration-none"
               onClick={() => setFolderId(null)}
             >
