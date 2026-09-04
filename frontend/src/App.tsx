@@ -117,6 +117,7 @@ export default function App() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [dragging, setDragging] = useState(false);
   const [preview, setPreview] = useState<PreviewState>(null);
+  const [thumbnailUrls, setThumbnailUrls] = useState<Record<number, string>>({});
   const fileInput = useRef<HTMLInputElement>(null);
   const authHeaders = token ? headers(token) : {};
   const currentFolder = folders.find((folder) => folder.id === folderId);
@@ -189,6 +190,35 @@ export default function App() {
       if (preview) URL.revokeObjectURL(preview.url);
     };
   }, [preview]);
+  useEffect(() => {
+    let cancelled = false;
+    const imageFiles = files.filter((file) => previewKind(file) === "image");
+    Promise.all(
+      imageFiles.map(async (file) => {
+        try {
+          const response = await api.get(`/files/${file.id}/download`, {
+            headers: authHeaders,
+            responseType: "blob",
+          });
+          return [file.id, URL.createObjectURL(response.data)] as const;
+        } catch {
+          return null;
+        }
+      }),
+    ).then((entries) => {
+      if (cancelled) return;
+      const validEntries = entries.filter(
+        (entry): entry is readonly [number, string] => entry !== null,
+      );
+      setThumbnailUrls(Object.fromEntries(validEntries));
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [files, token]);
+  useEffect(() => {
+    return () => Object.values(thumbnailUrls).forEach((url) => URL.revokeObjectURL(url));
+  }, [thumbnailUrls]);
   const totalFiles =
     folders.reduce((sum, folder) => sum + (folder._count?.files || 0), 0) +
     files.length;
@@ -804,9 +834,17 @@ export default function App() {
                   role="button"
                 >
                   <div className="card-body d-flex align-items-center gap-2 gap-md-3 py-3">
-                    <span className="badge text-bg-primary">
-                      {fileIcon(file)}
-                    </span>
+                    {thumbnailUrls[file.id] ? (
+                      <img
+                        src={thumbnailUrls[file.id]}
+                        alt=""
+                        className="file-thumbnail rounded border"
+                      />
+                    ) : (
+                      <span className="badge text-bg-primary">
+                        {fileIcon(file)}
+                      </span>
+                    )}
                     <div className="flex-grow-1">
                       <strong className="d-block text-truncate">
                         {file.originalFilename}
