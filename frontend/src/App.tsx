@@ -32,7 +32,8 @@ type AlertState = {
   message: string;
   shareUrl?: string;
 } | null;
-type PreviewState = { file: FileItem; url: string } | null;
+type PreviewKind = "image" | "pdf" | "video" | "audio" | "text" | null;
+type PreviewState = { file: FileItem; url: string; kind: PreviewKind } | null;
 const headers = (token: string) => ({ Authorization: `Bearer ${token}` });
 const formatSize = (value: number) =>
   value < 1024
@@ -47,16 +48,31 @@ const formatEta = (seconds: number) => {
   const remaining = Math.ceil(seconds % 60);
   return minutes ? `${minutes}m ${remaining}d` : `${remaining} detik`;
 };
-const canPreview = (file: FileItem) =>
-  file.mimeType?.startsWith("image/") || file.mimeType === "application/pdf";
+const previewKind = (file: FileItem): PreviewKind => {
+  const mime = file.mimeType?.toLowerCase() || "";
+  const extension = file.originalFilename.split(".").pop()?.toLowerCase() || "";
+  if (mime.startsWith("image/") || ["jpg", "jpeg", "png", "gif", "webp", "svg", "bmp"].includes(extension)) return "image";
+  if (mime === "application/pdf" || extension === "pdf") return "pdf";
+  if (mime.startsWith("video/") || ["mp4", "webm", "ogg", "mov", "m4v"].includes(extension)) return "video";
+  if (mime.startsWith("audio/") || ["mp3", "wav", "ogg", "m4a", "aac", "flac"].includes(extension)) return "audio";
+  if (mime.startsWith("text/") || ["txt", "md", "csv", "json", "xml", "html", "css", "js", "ts"].includes(extension)) return "text";
+  return null;
+};
+const canPreview = (file: FileItem) => previewKind(file) !== null;
 const fileIcon = (file: FileItem) =>
-  file.mimeType?.startsWith("image")
+  previewKind(file) === "image"
     ? "IMG"
-    : file.mimeType?.includes("pdf")
+    : previewKind(file) === "pdf"
       ? "PDF"
-      : file.mimeType?.includes("spreadsheet")
-        ? "XLS"
-        : "FILE";
+      : previewKind(file) === "video"
+        ? "VID"
+        : previewKind(file) === "audio"
+          ? "AUD"
+          : file.mimeType?.includes("spreadsheet")
+            ? "XLS"
+            : previewKind(file) === "text"
+              ? "TXT"
+              : "FILE";
 const copyText = async (value: string) => {
   try {
     await navigator.clipboard.writeText(value);
@@ -409,13 +425,14 @@ export default function App() {
     }
   };
   const previewFile = async (file: FileItem) => {
-    if (!canPreview(file)) return;
+    const kind = previewKind(file);
+    if (!kind) return;
     try {
       const response = await api.get(`/files/${file.id}/download`, {
         headers: authHeaders,
         responseType: "blob",
       });
-      setPreview({ file, url: URL.createObjectURL(response.data) });
+      setPreview({ file, url: URL.createObjectURL(response.data), kind });
     } catch {
       setAlert({
         type: "danger",
@@ -783,6 +800,7 @@ export default function App() {
                 <div
                   className={`card mb-2 overflow-hidden ${selected?.id === file.id ? "border-primary bg-primary-subtle" : "border-light"}`}
                   onClick={() => setSelected(file)}
+                  onDoubleClick={() => previewFile(file)}
                   role="button"
                 >
                   <div className="card-body d-flex align-items-center gap-2 gap-md-3 py-3">
@@ -796,6 +814,11 @@ export default function App() {
                       <small className="text-secondary">
                         {file.mimeType || "File"} · {formatSize(file.size)}
                       </small>
+                      {canPreview(file) && (
+                        <small className="d-block text-success">
+                          Klik Lihat atau dua kali untuk preview
+                        </small>
+                      )}
                     </div>
                     {canPreview(file) && (
                       <button
@@ -918,17 +941,27 @@ export default function App() {
                 />
               </div>
               <div className="modal-body p-2 p-md-4 text-center">
-                {preview.file.mimeType?.startsWith("image/") ? (
+                {preview.kind === "image" ? (
                   <img
                     src={preview.url}
                     alt={preview.file.originalFilename}
                     className="img-fluid preview-image"
                   />
-                ) : (
+                ) : preview.kind === "pdf" ? (
                   <iframe
                     src={preview.url}
                     title={preview.file.originalFilename}
                     className="preview-pdf w-100 border-0"
+                  />
+                ) : preview.kind === "video" ? (
+                  <video src={preview.url} className="preview-media" controls autoPlay />
+                ) : preview.kind === "audio" ? (
+                  <audio src={preview.url} className="w-100" controls autoPlay />
+                ) : (
+                  <iframe
+                    src={preview.url}
+                    title={preview.file.originalFilename}
+                    className="preview-text w-100 border rounded"
                   />
                 )}
               </div>
