@@ -111,7 +111,9 @@ export default function App() {
             title={folder.name}
           >
             <span className="me-2">{depth ? "└" : "▰"}</span>
-            <span className="d-none d-md-inline">{folder.name}</span>
+            <span className="text-white text-truncate d-inline-block align-middle" style={{ maxWidth: "calc(100% - 42px)" }}>
+              {folder.name}
+            </span>
             <small className="float-end opacity-75">
               {folder._count?.files || ""}
             </small>
@@ -124,16 +126,21 @@ export default function App() {
     setLoading(true);
     try {
       const [fileResponse, folderResponse] = await Promise.all([
-        api.get("/files", {
-          headers: authHeaders,
-          params: {
-            ...(folderId ? { folderId } : {}),
-            ...(query ? { q: query } : {}),
-          },
+          api.get("/files", {
+            headers: authHeaders,
+            params: {
+              folderId: folderId ?? "",
+              ...(query ? { q: query } : {}),
+            },
         }),
         api.get("/folders", { headers: authHeaders }),
       ]);
-      setFiles(fileResponse.data);
+      const activeFolderId = folderId ?? null;
+      setFiles(
+        fileResponse.data.filter(
+          (file: FileItem) => (file.folder?.id ?? null) === activeFolderId,
+        ),
+      );
       setFolders(folderResponse.data);
     } catch (error: any) {
       setAlert({
@@ -518,16 +525,19 @@ export default function App() {
               <small className="text-info fw-bold">WORKSPACE</small>
               <button
                 className={`btn text-start w-100 mt-2 ${!folderId ? "btn-primary" : "btn-link text-white text-decoration-none"}`}
-                onClick={() => setFolderId(null)}
+                onClick={() => {
+                  setFolderId(null);
+                  setSidebarOpen(false);
+                }}
               >
-                ◈ <span className="d-none d-md-inline">Semua file</span>
+                ◈ <span>Semua file</span>
                 <small className="float-end">{totalFiles}</small>
               </button>
               <button
                 className="btn btn-link text-white text-start text-decoration-none w-100"
                 onClick={() => setFolderDialog(true)}
               >
-                ＋ <span className="d-none d-md-inline">Folder baru</span>
+                ＋ <span>Folder baru</span>
               </button>
               <small className="d-block text-info fw-bold mt-4 mb-2">
                 FOLDER
