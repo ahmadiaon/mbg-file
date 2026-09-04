@@ -524,9 +524,9 @@ export default function App() {
     );
   return (
     <div className="container-fluid min-vh-100 bg-secondary-subtle">
-      <div className="row min-vh-100">
+      <div className="app-layout min-vh-100">
         <aside
-          className={`col-md-3 col-xl-2 px-0 text-white border-end border-3 border-primary-subtle app-sidebar ${sidebarOpen ? "app-sidebar-open" : ""}`}
+          className={`px-0 text-white border-end border-3 border-primary-subtle app-sidebar ${sidebarOpen ? "app-sidebar-open" : ""}`}
           style={{
             background:
               "linear-gradient(180deg, #071a33 0%, #0d294b 52%, #123e68 100%)",
@@ -599,7 +599,7 @@ export default function App() {
           </div>
         </aside>
         <section
-          className={`col p-3 p-md-5 position-relative ${dragging ? "drop-active" : ""}`}
+          className={`p-3 p-md-5 position-relative ${dragging ? "drop-active" : ""}`}
           style={{ minWidth: 0 }}
           onDragEnter={(event) => {
             event.preventDefault();
