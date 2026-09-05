@@ -1,0 +1,134 @@
+<!doctype html>
+<html lang="id">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>API Upload File — Panduan untuk Partner</title>
+  <style>
+    :root { color-scheme: light; }
+    body { font-family: -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; line-height: 1.6; color: #1f2328; margin: 0; background: #f6f8fa; }
+    .wrap { max-width: 860px; margin: 0 auto; padding: 32px 20px 64px; }
+    h1 { font-size: 1.7rem; border-bottom: 2px solid #0969da; padding-bottom: 10px; }
+    h2 { font-size: 1.25rem; margin-top: 2em; color: #0a3069; }
+    h3 { font-size: 1.05rem; margin-top: 1.6em; }
+    pre { background: #0d1117; color: #e6edf3; padding: 14px 16px; border-radius: 8px; overflow-x: auto; font-size: 0.85rem; }
+    code { font-family: ui-monospace, "SFMono-Regular", Consolas, monospace; background: #eef1f4; padding: 2px 5px; border-radius: 5px; font-size: 0.85em; }
+    pre code { background: none; padding: 0; }
+    table { border-collapse: collapse; width: 100%; margin: 1em 0; background: #fff; }
+    th, td { border: 1px solid #d0d7de; padding: 8px 12px; text-align: left; font-size: 0.9rem; }
+    th { background: #f6f8fa; }
+    .note { background: #fff8c5; border: 1px solid #d4a72c; border-radius: 8px; padding: 10px 14px; margin: 1em 0; }
+  </style>
+</head>
+<body>
+<div class="wrap">
+
+<h1>API Upload File — Panduan untuk Partner</h1>
+<p>Gunakan panduan ini untuk meng-upload file ke MBG File Manager lewat API (misalnya dari script, aplikasi, atau sistem otomatis).</p>
+
+<h2>Alamat Server</h2>
+<table>
+  <tr><th>Lingkungan</th><th>Base URL</th></tr>
+  <tr><td>Publik</td><td><code>https://file.mitrabaritogroup.com</code></td></tr>
+  <tr><td>Internal (opsional)</td><td><code>http://10.10.20.253:8081</code></td></tr>
+</table>
+<p>Semua endpoint memakai prefix <code>/api/v1</code>.</p>
+
+<h2>1. Siapkan API Token</h2>
+<p>API token dibuat oleh admin MBG File Manager (menu <strong>⌘ API token</strong> di sidebar aplikasi). Mintalah token tersebut kepada admin.</p>
+<div class="note">Token lengkap hanya ditampilkan <strong>sekali</strong> saat dibuat. Simpan di tempat aman.</div>
+<p>Token dipakai lewat salah satu header berikut (pilih salah satu):</p>
+<pre><code>Authorization: Bearer &lt;TOKEN&gt;</code></pre>
+<p>atau</p>
+<pre><code>X-API-Token: &lt;TOKEN&gt;</code></pre>
+
+<h2>2. Upload File</h2>
+<h3>Endpoint</h3>
+<pre><code>POST /api/v1/external/upload</code></pre>
+<h3>Format</h3>
+<p>Gunakan <code>multipart/form-data</code>.</p>
+<table>
+  <tr><th>Field</th><th>Tipe</th><th>Wajib</th><th>Keterangan</th></tr>
+  <tr><td><code>file</code></td><td>file</td><td>Ya</td><td>File yang di-upload</td></tr>
+  <tr><td><code>folderPath</code></td><td>text</td><td>Opsional</td><td>Lokasi tujuan, contoh <code>2026/Januari/Laporan</code>. Folder dibuat otomatis jika belum ada.</td></tr>
+  <tr><td><code>folderId</code></td><td>text</td><td>Opsional</td><td>ID folder tujuan (alternatif dari <code>folderPath</code>).</td></tr>
+</table>
+<div class="note">Gunakan salah satu antara <code>folderPath</code> atau <code>folderId</code>. Jika keduanya kosong, file masuk ke root.</div>
+
+<h3>Contoh dengan curl</h3>
+<pre><code>curl -X POST "https://file.mitrabaritogroup.com/api/v1/external/upload" \
+  -H "Authorization: Bearer mbg_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx" \
+  -F "file=@/path/ke/file.pdf" \
+  -F "folderPath=2026/Januari/Laporan"</code></pre>
+
+<h3>Contoh dengan PHP</h3>
+<pre><code>$token = 'mbg_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx';
+$file = new CURLFile('/path/ke/file.pdf', 'application/pdf', 'file.pdf');
+
+$curl = curl_init();
+curl_setopt_array($curl, [
+    CURLOPT_URL =&gt; 'https://file.mitrabaritogroup.com/api/v1/external/upload',
+    CURLOPT_RETURNTRANSFER =&gt; true,
+    CURLOPT_POST =&gt; true,
+    CURLOPT_HTTPHEADER =&gt; ["Authorization: Bearer $token"],
+    CURLOPT_POSTFIELDS =&gt; [
+        'file' =&gt; $file,
+        'folderPath' =&gt; '2026/Januari/Laporan',
+    ],
+]);
+
+$response = curl_exec($curl);
+curl_close($curl);
+echo $response;</code></pre>
+
+<h3>Contoh dengan Python</h3>
+<pre><code>import requests
+
+url = "https://file.mitrabaritogroup.com/api/v1/external/upload"
+headers = {"Authorization": "Bearer mbg_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"}
+
+with open("/path/ke/file.pdf", "rb") as f:
+    response = requests.post(
+        url,
+        headers=headers,
+        files={"file": ("file.pdf", f, "application/pdf")},
+        data={"folderPath": "2026/Januari/Laporan"},
+    )
+
+print(response.status_code)
+print(response.json())</code></pre>
+
+<h2>3. Respons</h2>
+<h3>Sukses (200)</h3>
+<pre><code>{
+  "id": 123,
+  "filename": "1725512345678-file.pdf",
+  "originalFilename": "file.pdf",
+  "storagePath": "/path/storage/1725512345678-file.pdf",
+  "mimeType": "application/pdf",
+  "size": 1048576,
+  "sha256": "abc123...",
+  "source": "external",
+  "folderId": 5,
+  "uploadedBy": 1,
+  "createdAt": "2025-09-05T04:00:00.000Z",
+  "updatedAt": "2025-09-05T04:00:00.000Z"
+}</code></pre>
+
+<h3>Error</h3>
+<table>
+  <tr><th>Kode</th><th>Arti</th></tr>
+  <tr><td><code>400</code></td><td>Field <code>file</code> kosong/tidak ada</td></tr>
+  <tr><td><code>401</code></td><td>Token hilang, salah, atau kedaluwarsa</td></tr>
+</table>
+
+<h2>4. Catatan Penting</h2>
+<ul>
+  <li>Token yang statusnya <strong>REVOKED</strong> atau sudah lewat <code>expiresAt</code> tidak bisa dipakai.</li>
+  <li>Ukuran file mengikuti batas server. Pastikan file ≤ 50 MB (atau sesuai kebijakan admin).</li>
+  <li>Nama file dengan karakter ilegal (<code>\ / : * ? " &lt; &gt; |</code>) otomatis dibersihkan.</li>
+</ul>
+
+</div>
+</body>
+</html>
