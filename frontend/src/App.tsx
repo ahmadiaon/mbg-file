@@ -34,6 +34,14 @@ type AlertState = {
 } | null;
 type PreviewKind = "image" | "pdf" | "video" | "audio" | "text" | null;
 type PreviewState = { file: FileItem; url: string; kind: PreviewKind } | null;
+type ApiTokenItem = {
+  id: number;
+  name: string;
+  status: string;
+  expiresAt?: string | null;
+  lastUsedAt?: string | null;
+  createdAt: string;
+};
 const headers = (token: string) => ({ Authorization: `Bearer ${token}` });
 const formatSize = (value: number) =>
   value < 1024
@@ -118,6 +126,10 @@ export default function App() {
   const [dragging, setDragging] = useState(false);
   const [preview, setPreview] = useState<PreviewState>(null);
   const [thumbnailUrls, setThumbnailUrls] = useState<Record<number, string>>({});
+  const [tokenDialog, setTokenDialog] = useState(false);
+  const [apiTokens, setApiTokens] = useState<ApiTokenItem[]>([]);
+  const [tokenName, setTokenName] = useState("Upload eksternal");
+  const [createdToken, setCreatedToken] = useState("");
   const fileInput = useRef<HTMLInputElement>(null);
   const authHeaders = token ? headers(token) : {};
   const currentFolder = folders.find((folder) => folder.id === folderId);
@@ -480,6 +492,73 @@ export default function App() {
     setDragging(false);
     upload(event.dataTransfer.files);
   };
+  const loadTokens = async () => {
+    if (!token) return;
+    try {
+      const response = await api.get("/tokens", { headers: authHeaders });
+      setApiTokens(response.data);
+    } catch {
+      setAlert({
+        type: "danger",
+        title: "Token gagal dimuat",
+        message: "Daftar API token tidak dapat dimuat.",
+      });
+    }
+  };
+  const openTokenDialog = async () => {
+    setSidebarOpen(false);
+    setCreatedToken("");
+    setTokenDialog(true);
+    await loadTokens();
+  };
+  const createToken = async (event: FormEvent) => {
+    event.preventDefault();
+    setLoading(true);
+    try {
+      const response = await api.post(
+        "/tokens",
+        { name: tokenName },
+        { headers: authHeaders },
+      );
+      setCreatedToken(response.data.token);
+      setTokenName("Upload eksternal");
+      await loadTokens();
+      setAlert({
+        type: "success",
+        title: "API token dibuat",
+        message: "Simpan token sekarang. Nilai lengkap hanya ditampilkan sekali.",
+      });
+    } catch {
+      setAlert({
+        type: "danger",
+        title: "Token gagal dibuat",
+        message: "API token tidak dapat dibuat.",
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+  const revokeToken = async (id: number) => {
+    if (!window.confirm("Cabut API token ini?")) return;
+    setLoading(true);
+    try {
+      await api.delete(`/tokens/${id}`, { headers: authHeaders });
+      await loadTokens();
+      setAlert({
+        type: "success",
+        title: "Token dicabut",
+        message: "API token sudah tidak dapat digunakan.",
+      });
+    } catch {
+      setAlert({
+        type: "danger",
+        title: "Token gagal dicabut",
+        message: "API token tidak dapat dicabut.",
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
   const removeFolder = async (folder: Folder) => {
     if (!window.confirm(`Hapus folder ${folder.name}? Folder harus kosong.`))
       return;
@@ -627,6 +706,12 @@ export default function App() {
                 onClick={() => setFolderDialog(true)}
               >
                 ＋ <span>Folder baru</span>
+              </button>
+              <button
+                className="btn btn-link text-white text-start text-decoration-none w-100"
+                onClick={openTokenDialog}
+              >
+                ⌘ <span>API token</span>
               </button>
               <small className="d-block text-info fw-bold mt-4 mb-2">
                 FOLDER
@@ -1076,6 +1161,130 @@ export default function App() {
                 <button
                   className="btn btn-secondary"
                   onClick={() => setAlert(null)}
+                >
+                  Tutup
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+      {tokenDialog && (
+        <div
+          className="modal fade show d-block"
+          tabIndex={-1}
+          style={{ background: "rgba(0,0,0,.55)" }}
+        >
+          <div className="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
+            <div className="modal-content">
+              <div className="modal-header">
+                <h5 className="modal-title">API token</h5>
+                <button
+                  type="button"
+                  className="btn-close"
+                  onClick={() => setTokenDialog(false)}
+                />
+              </div>
+              <div className="modal-body">
+                <p className="text-secondary">
+                  Token dipakai untuk upload file dari luar web, misalnya curl
+                  atau aplikasi lain.
+                </p>
+                <form className="row g-2 align-items-end mb-4" onSubmit={createToken}>
+                  <div className="col-12 col-md">
+                    <label className="form-label">Nama token</label>
+                    <input
+                      className="form-control"
+                      value={tokenName}
+                      onChange={(e) => setTokenName(e.target.value)}
+                      placeholder="Upload eksternal"
+                    />
+                  </div>
+                  <div className="col-auto">
+                    <button className="btn btn-primary" disabled={loading}>
+                      Buat token
+                    </button>
+                  </div>
+                </form>
+                {createdToken && (
+                  <div className="alert alert-success">
+                    <label className="form-label small fw-bold">
+                      Token baru, simpan sekarang
+                    </label>
+                    <input
+                      className="form-control mb-2"
+                      readOnly
+                      value={createdToken}
+                      onFocus={(e) => e.currentTarget.select()}
+                    />
+                    <button
+                      className="btn btn-sm btn-success"
+                      onClick={() => copyText(createdToken)}
+                    >
+                      Salin token
+                    </button>
+                  </div>
+                )}
+                <div className="table-responsive">
+                  <table className="table table-sm align-middle">
+                    <thead>
+                      <tr>
+                        <th>Nama</th>
+                        <th>Status</th>
+                        <th>Terakhir dipakai</th>
+                        <th></th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {apiTokens.map((item) => (
+                        <tr key={item.id}>
+                          <td>{item.name}</td>
+                          <td>
+                            <span
+                              className={`badge ${item.status === "ACTIVE" ? "text-bg-success" : "text-bg-secondary"}`}
+                            >
+                              {item.status}
+                            </span>
+                          </td>
+                          <td className="small text-secondary">
+                            {item.lastUsedAt
+                              ? new Date(item.lastUsedAt).toLocaleString("id-ID")
+                              : "-"}
+                          </td>
+                          <td className="text-end">
+                            {item.status === "ACTIVE" && (
+                              <button
+                                className="btn btn-sm btn-outline-danger"
+                                onClick={() => revokeToken(item.id)}
+                              >
+                                Cabut
+                              </button>
+                            )}
+                          </td>
+                        </tr>
+                      ))}
+                      {!apiTokens.length && (
+                        <tr>
+                          <td colSpan={4} className="text-secondary text-center">
+                            Belum ada API token.
+                          </td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+                <small className="text-secondary">
+                  Contoh upload:{" "}
+                  <code>
+                    curl -X POST https://file.mitrabaritogroup.com/api/v1/external/upload
+                    -H "Authorization: Bearer mbg_xxx" -F "file=@foto.jpg"
+                  </code>
+                </small>
+              </div>
+              <div className="modal-footer">
+                <button
+                  className="btn btn-secondary"
+                  onClick={() => setTokenDialog(false)}
                 >
                   Tutup
                 </button>
