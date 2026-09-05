@@ -61,7 +61,13 @@
 .preview-text {
   display: block;
   height: 60vh;
+  max-height: 60vh;
+  overflow: auto;
   background: #f8f9fa;
+  font-family: ui-monospace, "SFMono-Regular", Consolas, monospace;
+  font-size: 0.85rem;
+  white-space: pre-wrap;
+  word-break: break-word;
 }
 
 .file-thumbnail {

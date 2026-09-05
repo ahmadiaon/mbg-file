@@ -33,7 +33,12 @@ type AlertState = {
   shareUrl?: string;
 } | null;
 type PreviewKind = "image" | "pdf" | "video" | "audio" | "text" | null;
-type PreviewState = { file: FileItem; url: string; kind: PreviewKind } | null;
+type PreviewState = {
+  file: FileItem;
+  url?: string;
+  text?: string;
+  kind: PreviewKind;
+} | null;
 type ApiTokenItem = {
   id: number;
   name: string;
@@ -59,11 +64,29 @@ const formatEta = (seconds: number) => {
 const previewKind = (file: FileItem): PreviewKind => {
   const mime = file.mimeType?.toLowerCase() || "";
   const extension = file.originalFilename.split(".").pop()?.toLowerCase() || "";
-  if (mime.startsWith("image/") || ["jpg", "jpeg", "png", "gif", "webp", "svg", "bmp"].includes(extension)) return "image";
+  if (
+    mime.startsWith("image/") ||
+    ["jpg", "jpeg", "png", "gif", "webp", "svg", "bmp"].includes(extension)
+  )
+    return "image";
   if (mime === "application/pdf" || extension === "pdf") return "pdf";
-  if (mime.startsWith("video/") || ["mp4", "webm", "ogg", "mov", "m4v"].includes(extension)) return "video";
-  if (mime.startsWith("audio/") || ["mp3", "wav", "ogg", "m4a", "aac", "flac"].includes(extension)) return "audio";
-  if (mime.startsWith("text/") || ["txt", "md", "csv", "json", "xml", "html", "css", "js", "ts"].includes(extension)) return "text";
+  if (
+    mime.startsWith("video/") ||
+    ["mp4", "webm", "ogg", "mov", "m4v"].includes(extension)
+  )
+    return "video";
+  if (
+    mime.startsWith("audio/") ||
+    ["mp3", "wav", "ogg", "m4a", "aac", "flac"].includes(extension)
+  )
+    return "audio";
+  if (
+    mime.startsWith("text/") ||
+    ["txt", "md", "csv", "json", "xml", "html", "css", "js", "ts"].includes(
+      extension,
+    )
+  )
+    return "text";
   return null;
 };
 const canPreview = (file: FileItem) => previewKind(file) !== null;
@@ -125,7 +148,9 @@ export default function App() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [dragging, setDragging] = useState(false);
   const [preview, setPreview] = useState<PreviewState>(null);
-  const [thumbnailUrls, setThumbnailUrls] = useState<Record<number, string>>({});
+  const [thumbnailUrls, setThumbnailUrls] = useState<Record<number, string>>(
+    {},
+  );
   const [tokenDialog, setTokenDialog] = useState(false);
   const [apiTokens, setApiTokens] = useState<ApiTokenItem[]>([]);
   const [tokenName, setTokenName] = useState("Upload eksternal");
@@ -152,7 +177,10 @@ export default function App() {
             title={folder.name}
           >
             <span className="me-2">{depth ? "└" : "▰"}</span>
-            <span className="text-white text-truncate d-inline-block align-middle" style={{ maxWidth: "calc(100% - 42px)" }}>
+            <span
+              className="text-white text-truncate d-inline-block align-middle"
+              style={{ maxWidth: "calc(100% - 42px)" }}
+            >
               {folder.name}
             </span>
             <small className="float-end opacity-75">
@@ -167,12 +195,12 @@ export default function App() {
     setLoading(true);
     try {
       const [fileResponse, folderResponse] = await Promise.all([
-          api.get("/files", {
-            headers: authHeaders,
-            params: {
-              folderId: folderId ?? "",
-              ...(query ? { q: query } : {}),
-            },
+        api.get("/files", {
+          headers: authHeaders,
+          params: {
+            folderId: folderId ?? "",
+            ...(query ? { q: query } : {}),
+          },
         }),
         api.get("/folders", { headers: authHeaders }),
       ]);
@@ -199,7 +227,7 @@ export default function App() {
   }, [token, folderId, query]);
   useEffect(() => {
     return () => {
-      if (preview) URL.revokeObjectURL(preview.url);
+      if (preview?.url) URL.revokeObjectURL(preview.url);
     };
   }, [preview]);
   useEffect(() => {
@@ -229,7 +257,8 @@ export default function App() {
     };
   }, [files, token]);
   useEffect(() => {
-    return () => Object.values(thumbnailUrls).forEach((url) => URL.revokeObjectURL(url));
+    return () =>
+      Object.values(thumbnailUrls).forEach((url) => URL.revokeObjectURL(url));
   }, [thumbnailUrls]);
   const totalFiles =
     folders.reduce((sum, folder) => sum + (folder._count?.files || 0), 0) +
@@ -470,6 +499,14 @@ export default function App() {
     const kind = previewKind(file);
     if (!kind) return;
     try {
+      if (kind === "text") {
+        const response = await api.get(`/files/${file.id}/download`, {
+          headers: authHeaders,
+          responseType: "text",
+        });
+        setPreview({ file, text: response.data, kind });
+        return;
+      }
       const response = await api.get(`/files/${file.id}/download`, {
         headers: authHeaders,
         responseType: "blob",
@@ -484,7 +521,7 @@ export default function App() {
     }
   };
   const closePreview = () => {
-    if (preview) URL.revokeObjectURL(preview.url);
+    if (preview?.url) URL.revokeObjectURL(preview.url);
     setPreview(null);
   };
   const handleDrop = (event: DragEvent<HTMLElement>) => {
@@ -526,7 +563,8 @@ export default function App() {
       setAlert({
         type: "success",
         title: "API token dibuat",
-        message: "Simpan token sekarang. Nilai lengkap hanya ditampilkan sekali.",
+        message:
+          "Simpan token sekarang. Nilai lengkap hanya ditampilkan sekali.",
       });
     } catch {
       setAlert({
@@ -595,7 +633,11 @@ export default function App() {
                     src="/mbg-logo.png"
                     alt="MBG"
                     className="d-block mb-3"
-                    style={{ width: "96px", height: "96px", objectFit: "contain" }}
+                    style={{
+                      width: "96px",
+                      height: "96px",
+                      objectFit: "contain",
+                    }}
                   />
                   <span className="badge text-bg-primary mb-3">
                     MBG FILE MANAGEMENT
@@ -673,7 +715,7 @@ export default function App() {
                 className="rounded-circle bg-white me-2"
                 style={{ width: "34px", height: "34px", objectFit: "contain" }}
               />
-              <span>MBG{" "}</span>
+              <span>MBG </span>
               <small className="text-info">FILES</small>
             </div>
             <button
@@ -831,7 +873,9 @@ export default function App() {
               className="btn btn-outline-secondary btn-sm me-2"
               onClick={() => setFolderId(currentFolder?.parentId || null)}
               disabled={!currentFolder}
-              title={currentFolder ? "Kembali ke folder sebelumnya" : "Sudah di root"}
+              title={
+                currentFolder ? "Kembali ke folder sebelumnya" : "Sudah di root"
+              }
             >
               ← Kembali
             </button>
@@ -907,69 +951,70 @@ export default function App() {
                 </div>
               </div>
             ))}
-            {folderId !== null && files.map((file) => (
-              <div
-                className={view === "grid" ? "col-12 col-md-6 col-xl-4" : ""}
-                key={file.id}
-              >
+            {folderId !== null &&
+              files.map((file) => (
                 <div
-                  className={`card mb-2 overflow-hidden ${selected?.id === file.id ? "border-primary bg-primary-subtle" : "border-light"}`}
-                  onClick={() => setSelected(file)}
-                  onDoubleClick={() => previewFile(file)}
-                  role="button"
+                  className={view === "grid" ? "col-12 col-md-6 col-xl-4" : ""}
+                  key={file.id}
                 >
-                  <div className="card-body d-flex align-items-center gap-2 gap-md-3 py-3">
-                    {thumbnailUrls[file.id] ? (
-                      <img
-                        src={thumbnailUrls[file.id]}
-                        alt=""
-                        className="file-thumbnail rounded border"
-                      />
-                    ) : (
-                      <span className="badge text-bg-primary">
-                        {fileIcon(file)}
-                      </span>
-                    )}
-                    <div className="flex-grow-1">
-                      <strong className="d-block text-truncate">
-                        {file.originalFilename}
-                      </strong>
-                      <small className="text-secondary">
-                        {file.mimeType || "File"} · {formatSize(file.size)}
-                      </small>
-                      {canPreview(file) && (
-                        <small className="d-block text-success">
-                          Klik Lihat atau dua kali untuk preview
-                        </small>
+                  <div
+                    className={`card mb-2 overflow-hidden ${selected?.id === file.id ? "border-primary bg-primary-subtle" : "border-light"}`}
+                    onClick={() => setSelected(file)}
+                    onDoubleClick={() => previewFile(file)}
+                    role="button"
+                  >
+                    <div className="card-body d-flex align-items-center gap-2 gap-md-3 py-3">
+                      {thumbnailUrls[file.id] ? (
+                        <img
+                          src={thumbnailUrls[file.id]}
+                          alt=""
+                          className="file-thumbnail rounded border"
+                        />
+                      ) : (
+                        <span className="badge text-bg-primary">
+                          {fileIcon(file)}
+                        </span>
                       )}
-                    </div>
-                    {canPreview(file) && (
+                      <div className="flex-grow-1">
+                        <strong className="d-block text-truncate">
+                          {file.originalFilename}
+                        </strong>
+                        <small className="text-secondary">
+                          {file.mimeType || "File"} · {formatSize(file.size)}
+                        </small>
+                        {canPreview(file) && (
+                          <small className="d-block text-success">
+                            Klik Lihat atau dua kali untuk preview
+                          </small>
+                        )}
+                      </div>
+                      {canPreview(file) && (
+                        <button
+                          className="btn btn-sm btn-outline-secondary"
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            previewFile(file);
+                          }}
+                        >
+                          Lihat
+                        </button>
+                      )}
+                      <small className="text-secondary d-none d-md-block">
+                        {new Date(file.createdAt).toLocaleDateString("id-ID")}
+                      </small>
                       <button
-                        className="btn btn-sm btn-outline-secondary"
+                        className="btn btn-sm btn-outline-primary"
                         onClick={(event) => {
                           event.stopPropagation();
-                          previewFile(file);
+                          download(file);
                         }}
                       >
-                        Lihat
+                        ↓
                       </button>
-                    )}
-                    <small className="text-secondary d-none d-md-block">
-                      {new Date(file.createdAt).toLocaleDateString("id-ID")}
-                    </small>
-                    <button
-                      className="btn btn-sm btn-outline-primary"
-                      onClick={(event) => {
-                        event.stopPropagation();
-                        download(file);
-                      }}
-                    >
-                      ↓
-                    </button>
+                    </div>
                   </div>
                 </div>
-              </div>
-            ))}
+              ))}
             {(!files.length || folderId === null) && !visibleFolders.length && (
               <div className="text-center text-secondary py-5">
                 <div className="display-6">□</div>
@@ -1021,7 +1066,9 @@ export default function App() {
                 <div className="row g-2 mt-3">
                   <div className="col-6">
                     <div className="border rounded p-2">
-                      <small className="text-secondary d-block">Kecepatan</small>
+                      <small className="text-secondary d-block">
+                        Kecepatan
+                      </small>
                       <strong>{formatSpeed(uploadState.speed)}</strong>
                     </div>
                   </div>
@@ -1055,7 +1102,9 @@ export default function App() {
           >
             <div className="modal-content border-0 shadow-lg">
               <div className="modal-header">
-                <h5 className="modal-title text-truncate">{preview.file.originalFilename}</h5>
+                <h5 className="modal-title text-truncate">
+                  {preview.file.originalFilename}
+                </h5>
                 <button
                   type="button"
                   className="btn-close"
@@ -1077,22 +1126,33 @@ export default function App() {
                     className="preview-pdf w-100 border-0"
                   />
                 ) : preview.kind === "video" ? (
-                  <video src={preview.url} className="preview-media" controls autoPlay />
-                ) : preview.kind === "audio" ? (
-                  <audio src={preview.url} className="w-100" controls autoPlay />
-                ) : (
-                  <iframe
+                  <video
                     src={preview.url}
-                    title={preview.file.originalFilename}
-                    className="preview-text w-100 border rounded"
+                    className="preview-media"
+                    controls
+                    autoPlay
                   />
+                ) : preview.kind === "audio" ? (
+                  <audio
+                    src={preview.url}
+                    className="w-100"
+                    controls
+                    autoPlay
+                  />
+                ) : (
+                  <pre className="preview-text w-100 border rounded p-3 mb-0 text-start">
+                    {preview.text}
+                  </pre>
                 )}
               </div>
               <div className="modal-footer">
                 <button className="btn btn-secondary" onClick={closePreview}>
                   Tutup
                 </button>
-                <button className="btn btn-primary" onClick={() => download(preview.file)}>
+                <button
+                  className="btn btn-primary"
+                  onClick={() => download(preview.file)}
+                >
                   Download
                 </button>
               </div>
@@ -1190,7 +1250,10 @@ export default function App() {
                   Token dipakai untuk upload file dari luar web, misalnya curl
                   atau aplikasi lain.
                 </p>
-                <form className="row g-2 align-items-end mb-4" onSubmit={createToken}>
+                <form
+                  className="row g-2 align-items-end mb-4"
+                  onSubmit={createToken}
+                >
                   <div className="col-12 col-md">
                     <label className="form-label">Nama token</label>
                     <input
@@ -1248,7 +1311,9 @@ export default function App() {
                           </td>
                           <td className="small text-secondary">
                             {item.lastUsedAt
-                              ? new Date(item.lastUsedAt).toLocaleString("id-ID")
+                              ? new Date(item.lastUsedAt).toLocaleString(
+                                  "id-ID",
+                                )
                               : "-"}
                           </td>
                           <td className="text-end">
@@ -1265,7 +1330,10 @@ export default function App() {
                       ))}
                       {!apiTokens.length && (
                         <tr>
-                          <td colSpan={4} className="text-secondary text-center">
+                          <td
+                            colSpan={4}
+                            className="text-secondary text-center"
+                          >
                             Belum ada API token.
                           </td>
                         </tr>
@@ -1276,8 +1344,9 @@ export default function App() {
                 <small className="text-secondary">
                   Contoh upload:{" "}
                   <code>
-                    curl -X POST https://file.mitrabaritogroup.com/api/v1/external/upload
-                    -H "Authorization: Bearer mbg_xxx" -F "file=@foto.jpg"
+                    curl -X POST
+                    https://file.mitrabaritogroup.com/api/v1/external/upload -H
+                    "Authorization: Bearer mbg_xxx" -F "file=@foto.jpg"
                   </code>
                 </small>
               </div>
