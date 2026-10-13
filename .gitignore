@@ -1,8 +1,8 @@
-**/node_modules/
-**/dist/
-**/.env
-**/.env.*
-!**/.env.example
-backend/storage/
+node_modules/
+dist/
+storage/
+ssl/
+.env
+.env.bak
 *.log
-.DS_Store
+AGENTS.md

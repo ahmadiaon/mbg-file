@@ -7,7 +7,10 @@ import { join } from 'path';
 import { PrismaService } from './prisma.service';
 import { requireAuth } from './auth.util';
 
-const storageRoot = () => join(process.env.STORAGE_PATH || './storage');
+const storageRoot = () => {
+  const configured = process.env.STORAGE_PATH || './storage';
+  return configured.startsWith('/') ? configured : join(process.cwd(), configured);
+};
 const cleanName = (name: string) => name.trim().replace(/[\\/:*?"<>|]/g, '_').replace(/\.\./g, '') || 'Tanpa nama';
 const output = (file: any) => ({ ...file, size: Number(file.size) });
 

@@ -8,7 +8,10 @@ import { Response } from 'express';
 import { PrismaService } from './prisma.service';
 import { requireUser } from './auth.util';
 
-const storageRoot = () => join(process.env.STORAGE_PATH || './storage');
+const storageRoot = () => {
+  const configured = process.env.STORAGE_PATH || './storage';
+  return configured.startsWith('/') ? configured : join(process.cwd(), configured);
+};
 const cleanName = (name: string) => name.trim().replace(/[\\/:*?"<>|]/g, '_').replace(/\.\./g, '') || 'Tanpa nama';
 const output = (file: any) => ({ ...file, size: Number(file.size) });
 
@@ -32,11 +35,44 @@ export class FilesController {
   @Post(':id/share') async share(@Req() req: any, @Param('id') id: string, @Body('expiresAt') expiresAt?: string) { const user = requireUser(req); const file = await this.prisma.file.findUnique({ where: { id: Number(id) } }); if (!file) throw new NotFoundException('File tidak ditemukan'); const updated = await this.prisma.file.update({ where: { id: file.id }, data: { shareToken: file.shareToken || randomBytes(24).toString('hex'), shareEnabled: true, shareExpiresAt: expiresAt ? new Date(expiresAt) : null } }); await this.prisma.activityLog.create({ data: { action: 'share', source: 'v1', fileId: file.id, userId: Number(user.sub) } }); return { ...output(updated), shareUrl: `${process.env.APP_URL || `http://localhost:${process.env.PORT || 8081}`}/api/v1/public/share/${updated.shareToken}` }; }
   @Delete(':id/share') async unshare(@Req() req: any, @Param('id') id: string) { const user = requireUser(req); const file = await this.prisma.file.update({ where: { id: Number(id) }, data: { shareEnabled: false } }); await this.prisma.activityLog.create({ data: { action: 'unshare', source: 'v1', fileId: file.id, userId: Number(user.sub) } }); return { success: true }; }
   @Delete(':id') async remove(@Req() req: any, @Param('id') id: string) { const user = requireUser(req); const file = await this.prisma.file.findUnique({ where: { id: Number(id) } }); if (!file) throw new NotFoundException('File tidak ditemukan'); await fs.rm(file.storagePath, { force: true }); await this.prisma.file.delete({ where: { id: file.id } }); await this.prisma.activityLog.create({ data: { action: 'delete', source: 'v1', userId: Number(user.sub), metadata: { fileId: file.id, name: file.originalFilename } } }); return { success: true }; }
-  @Get(':id/download') async download(@Req() req: any, @Param('id') id: string, @Res() res: Response) { requireUser(req); const file = await this.prisma.file.findUnique({ where: { id: Number(id) } }); if (!file) return res.status(404).json({ message: 'File tidak ditemukan' }); res.setHeader('Content-Disposition', `attachment; filename="${file.originalFilename}"`); return createReadStream(file.storagePath).pipe(res); }
+  @Get(':id/download') async download(@Req() req: any, @Param('id') id: string, @Res() res: Response) {
+    requireUser(req);
+    const file = await this.prisma.file.findUnique({ where: { id: Number(id) } });
+    if (!file) return res.status(404).json({ message: 'File tidak ditemukan' });
+    try {
+      await fs.access(file.storagePath);
+    } catch {
+      return res.status(404).json({ message: 'Berkas fisik tidak ditemukan' });
+    }
+    res.setHeader('Content-Disposition', `attachment; filename="${file.originalFilename}"`);
+    const stream = createReadStream(file.storagePath);
+    stream.on('error', () => {
+      if (!res.headersSent) res.status(404).json({ message: 'Berkas fisik tidak dapat dibaca' });
+      else res.destroy();
+    });
+    return stream.pipe(res);
+  }
 }
 
 @Controller('public/share')
 export class PublicShareController {
   constructor(private readonly prisma: PrismaService) {}
-  @Get(':token') async download(@Param('token') token: string, @Res() res: Response) { const file = await this.prisma.file.findUnique({ where: { shareToken: token } }); if (!file || !file.shareEnabled || (file.shareExpiresAt && file.shareExpiresAt < new Date())) return res.status(404).json({ message: 'Link tidak ditemukan atau sudah kedaluwarsa' }); res.setHeader('Content-Disposition', `attachment; filename="${file.originalFilename}"`); return createReadStream(file.storagePath).pipe(res); }
+  @Get(':token') async download(@Param('token') token: string, @Res() res: Response) {
+    const file = await this.prisma.file.findUnique({ where: { shareToken: token } });
+    if (!file || !file.shareEnabled || (file.shareExpiresAt && file.shareExpiresAt < new Date())) {
+      return res.status(404).json({ message: 'Link tidak ditemukan atau sudah kedaluwarsa' });
+    }
+    try {
+      await fs.access(file.storagePath);
+    } catch {
+      return res.status(404).json({ message: 'Berkas fisik tidak ditemukan' });
+    }
+    res.setHeader('Content-Disposition', `attachment; filename="${file.originalFilename}"`);
+    const stream = createReadStream(file.storagePath);
+    stream.on('error', () => {
+      if (!res.headersSent) res.status(404).json({ message: 'Berkas fisik tidak dapat dibaca' });
+      else res.destroy();
+    });
+    return stream.pipe(res);
+  }
 }
